@@ -1,1 +1,2 @@
 # Hospitals_Dijkstras
+Our project aims to build a simple route optimization system to the nearest hospitals using Dijkstra’s Algorithm. The application gets the longitude and latitude of all hospitals in the US and narrows it down from a user specified location. The program will first narrow down the data by checking for keywords (state, city, zip code, etc.) Dijkstra’s algorithm will be used to then find the shortest path from the current location. We will use Python to implement the algorithm and optionally visualize the result using NetworkX or Matplotlib. 
