@@ -1,12 +1,13 @@
 import pandas as pd
+
 import networkx as nx
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
 from geopy.geocoders import Nominatim
 import geocoder
-import tkinter as tk
 
-#UI
+import tkinter as tk
 from tkinter import ttk, messagebox
 
 import threading
@@ -16,6 +17,8 @@ from functools import partial
 from dijkstras_algorithm import coordinate_convert, dijkstra_snapshots
 
 class HospitalApp:
+    # Graph updating code start on function 'on_start' 
+    # GUI code with tkinter, next 221 lines
     def __init__(self, root):
         self.root = root
         self.root.title("Dijkstra Hospital Finder")
@@ -25,7 +28,8 @@ class HospitalApp:
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=4)
 
-        self.df = pd.read_csv("us_hospital_locations/us_hospital_locations.csv")
+        #reading dataset
+        self.df = pd.read_csv("us_hospital_locations/us_hospital_locations.csv")  #CHANGE to path of file
         self.geolocator = Nominatim(user_agent="hospital_app")
 
         self.snapshots = []
@@ -167,6 +171,77 @@ class HospitalApp:
                   self.entry_state, self.entry_zip):
             w.config(state=state)
 
+    def next_step(self):
+        if self.step < len(self.snapshots) - 1:
+            self.step += 1
+            self.update_plot()
+
+    def prev_step(self):
+        if self.step > 0:
+            self.step -= 1
+            self.update_plot()
+
+    def toggle_play(self):
+        if not self.snapshots:
+            return
+        self.playing = not self.playing
+        self.play_btn.config(text='❚❚ Pause' if self.playing else '▶ Play')
+        if self.playing:
+            threading.Thread(target=self._auto_play,
+                             daemon=True).start()
+
+    def _auto_play(self):
+        while self.playing and self.step < len(self.snapshots) - 1:
+            time.sleep(1.0 / self.speed.get())
+            self.step += 1
+            self.root.after(0, self.update_plot)
+        self.playing = False
+        self.root.after(0, partial(self.play_btn.config,
+                                  text='▶ Play'))
+
+    def _on_press(self, event):
+        if event.inaxes:
+            self._dragging = True
+            self._prev_mouse = (event.xdata, event.ydata)
+
+    def _on_release(self, event):
+        self._dragging = False
+        self._prev_mouse = None
+
+    def _on_motion(self, event):
+        if not self._dragging or event.inaxes is None or self._prev_mouse is None:
+            return
+        dx = self._prev_mouse[0] - event.xdata
+        dy = self._prev_mouse[1] - event.ydata
+        x0, x1 = self.ax.get_xlim()
+        y0, y1 = self.ax.get_ylim()
+        self.ax.set_xlim(x0 + dx, x1 + dx)
+        self.ax.set_ylim(y0 + dy, y1 + dy)
+        self._prev_mouse = (event.xdata, event.ydata)
+        self.canvas.draw()
+
+    def zoom_in(self):
+        x0, x1 = self.ax.get_xlim()
+        y0, y1 = self.ax.get_ylim()
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        factor = 0.8
+        dx = (x1 - x0) * factor / 2
+        dy = (y1 - y0) * factor / 2
+        self.ax.set_xlim(cx - dx, cx + dx)
+        self.ax.set_ylim(cy - dy, cy + dy)
+        self.canvas.draw()
+
+    def zoom_out(self):
+        x0, x1 = self.ax.get_xlim()
+        y0, y1 = self.ax.get_ylim()
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        factor = 1.2
+        dx = (x1 - x0) * factor / 2
+        dy = (y1 - y0) * factor / 2
+        self.ax.set_xlim(cx - dx, cx + dx)
+        self.ax.set_ylim(cy - dy, cy + dy)
+        self.canvas.draw()
+    
     def on_start(self):
         if self.var_use_current.get():
             g = geocoder.ip('me')
@@ -307,73 +382,4 @@ class HospitalApp:
 
         self.canvas.draw()
 
-    def next_step(self):
-        if self.step < len(self.snapshots) - 1:
-            self.step += 1
-            self.update_plot()
 
-    def prev_step(self):
-        if self.step > 0:
-            self.step -= 1
-            self.update_plot()
-
-    def toggle_play(self):
-        if not self.snapshots:
-            return
-        self.playing = not self.playing
-        self.play_btn.config(text='❚❚ Pause' if self.playing else '▶ Play')
-        if self.playing:
-            threading.Thread(target=self._auto_play,
-                             daemon=True).start()
-
-    def _auto_play(self):
-        while self.playing and self.step < len(self.snapshots) - 1:
-            time.sleep(1.0 / self.speed.get())
-            self.step += 1
-            self.root.after(0, self.update_plot)
-        self.playing = False
-        self.root.after(0, partial(self.play_btn.config,
-                                  text='▶ Play'))
-
-    def _on_press(self, event):
-        if event.inaxes:
-            self._dragging = True
-            self._prev_mouse = (event.xdata, event.ydata)
-
-    def _on_release(self, event):
-        self._dragging = False
-        self._prev_mouse = None
-
-    def _on_motion(self, event):
-        if not self._dragging or event.inaxes is None or self._prev_mouse is None:
-            return
-        dx = self._prev_mouse[0] - event.xdata
-        dy = self._prev_mouse[1] - event.ydata
-        x0, x1 = self.ax.get_xlim()
-        y0, y1 = self.ax.get_ylim()
-        self.ax.set_xlim(x0 + dx, x1 + dx)
-        self.ax.set_ylim(y0 + dy, y1 + dy)
-        self._prev_mouse = (event.xdata, event.ydata)
-        self.canvas.draw()
-
-    def zoom_in(self):
-        x0, x1 = self.ax.get_xlim()
-        y0, y1 = self.ax.get_ylim()
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        factor = 0.8
-        dx = (x1 - x0) * factor / 2
-        dy = (y1 - y0) * factor / 2
-        self.ax.set_xlim(cx - dx, cx + dx)
-        self.ax.set_ylim(cy - dy, cy + dy)
-        self.canvas.draw()
-
-    def zoom_out(self):
-        x0, x1 = self.ax.get_xlim()
-        y0, y1 = self.ax.get_ylim()
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        factor = 1.2
-        dx = (x1 - x0) * factor / 2
-        dy = (y1 - y0) * factor / 2
-        self.ax.set_xlim(cx - dx, cx + dx)
-        self.ax.set_ylim(cy - dy, cy + dy)
-        self.canvas.draw()
